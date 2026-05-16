@@ -59,8 +59,10 @@ def get_title(card, link_el):
 
         if selector == "a[title]":
             title = el.get("title", "").strip()
+
         elif selector == "img[alt]":
             title = el.get("alt", "").strip()
+
         else:
             title = el.get_text(" ", strip=True)
 
@@ -73,6 +75,7 @@ def get_title(card, link_el):
 
     if link_el:
         title = link_el.get("title", "").strip()
+
         if title:
             return title
 
@@ -275,18 +278,22 @@ def scrape_page(page):
         category = detect_category(title, link)
         stock_status = detect_stock_status(card)
 
-        if title != "Onbekend" and image and stock_status != "out_of_stock":
-    products.append({
-        "title": title,
-        "link": link,
-        "image": image,
-        "price": price,
-        "category": category,
-        "stock_status": stock_status,
-        "source": "DeJong Marine Life",
-        "page": page,
-        "scraped_at": datetime.now().isoformat(timespec="seconds")
-    })
+        if (
+            title != "Onbekend"
+            and image
+            and stock_status != "out_of_stock"
+        ):
+            products.append({
+                "title": title,
+                "link": link,
+                "image": image,
+                "price": price,
+                "category": category,
+                "stock_status": stock_status,
+                "source": "DeJong Marine Life",
+                "page": page,
+                "scraped_at": datetime.now().isoformat(timespec="seconds")
+            })
 
     return products
 
