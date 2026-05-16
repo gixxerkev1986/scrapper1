@@ -58,10 +58,8 @@ def get_title(card, link_el):
 
         if selector == "a[title]":
             title = el.get("title", "").strip()
-
         elif selector == "img[alt]":
             title = el.get("alt", "").strip()
-
         else:
             title = el.get_text(" ", strip=True)
 
@@ -74,7 +72,6 @@ def get_title(card, link_el):
 
     if link_el:
         title = link_el.get("title", "").strip()
-
         if title:
             return title
 
@@ -143,11 +140,7 @@ def extract_html_from_response(response):
     try:
         data = response.json()
 
-        print("JSON TYPE:", type(data))
-
         if isinstance(data, dict):
-            print("JSON KEYS:", data.keys())
-
             possible_keys = [
                 "product_list_html",
                 "products",
@@ -163,7 +156,6 @@ def extract_html_from_response(response):
             for key in possible_keys:
                 if key in data and data[key]:
                     html = data[key]
-                    print(f"HTML gevonden in key: {key}")
                     break
 
             if isinstance(html, list):
@@ -172,8 +164,8 @@ def extract_html_from_response(response):
             if isinstance(html, dict):
                 html = json.dumps(html)
 
-    except Exception as e:
-        print("Geen JSON response:", e)
+    except Exception:
+        pass
 
     return html
 
@@ -203,7 +195,6 @@ def scrape_page(page):
     response.raise_for_status()
 
     html = extract_html_from_response(response)
-
     soup = BeautifulSoup(html, "lxml")
 
     product_cards = soup.select(
@@ -235,7 +226,6 @@ def scrape_page(page):
         )
 
         title = get_title(card, link_el)
-
         link = link_el.get("href") if link_el else ""
 
         image = ""
@@ -260,16 +250,17 @@ def scrape_page(page):
 
         category = detect_category(title, link)
 
-        products.append({
-            "title": title,
-            "link": link,
-            "image": image,
-            "price": price,
-            "category": category,
-            "source": "DeJong Marine Life",
-            "page": page,
-            "scraped_at": datetime.now().isoformat(timespec="seconds")
-        })
+        if title != "Onbekend" and image:
+            products.append({
+                "title": title,
+                "link": link,
+                "image": image,
+                "price": price,
+                "category": category,
+                "source": "DeJong Marine Life",
+                "page": page,
+                "scraped_at": datetime.now().isoformat(timespec="seconds")
+            })
 
     return products
 
