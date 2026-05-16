@@ -42,6 +42,7 @@ def get_title(card, link_el):
         ".product-item-link",
         ".woocommerce-loop-product__title",
         ".product-title",
+        ".grouped-product-name",
         ".title",
         "h2",
         "h3",
@@ -134,6 +135,28 @@ def detect_category(title, link):
     return "Cultured Corals"
 
 
+def detect_stock_status(card):
+    stock_el = card.select_one(".stock")
+
+    if not stock_el:
+        return "unknown"
+
+    stock_classes = stock_el.get("class", [])
+    stock_text = stock_el.get_text(" ", strip=True).lower()
+
+    if (
+        "unavailable" in stock_classes
+        or "out-of-stock" in stock_classes
+        or "out_of_stock" in stock_classes
+        or "out of stock" in stock_text
+        or "sold out" in stock_text
+        or "unavailable" in stock_text
+    ):
+        return "out_of_stock"
+
+    return "in_stock"
+
+
 def extract_html_from_response(response):
     html = response.text
 
@@ -222,7 +245,8 @@ def scrape_page(page):
         price_el = card.select_one(
             ".price, "
             ".woocommerce-Price-amount, "
-            ".price-box"
+            ".price-box, "
+            ".js-price-per-piece"
         )
 
         title = get_title(card, link_el)
@@ -249,6 +273,7 @@ def scrape_page(page):
         image = make_absolute_url(image)
 
         category = detect_category(title, link)
+        stock_status = detect_stock_status(card)
 
         if title != "Onbekend" and image:
             products.append({
@@ -257,6 +282,7 @@ def scrape_page(page):
                 "image": image,
                 "price": price,
                 "category": category,
+                "stock_status": stock_status,
                 "source": "DeJong Marine Life",
                 "page": page,
                 "scraped_at": datetime.now().isoformat(timespec="seconds")
@@ -271,20 +297,22 @@ def remove_duplicates(products):
     for product in products:
         title = product.get("title", "").strip().lower()
         image = product.get("image", "").strip()
-        link = product.get("link", "").strip()
-
-        key = f"{title}|{image}"
 
         if not title or not image:
             continue
+
+        key = f"{title}|{image}"
 
         if key not in unique:
             unique[key] = product
         else:
             existing = unique[key]
 
-            if not existing.get("link") and link:
-                existing["link"] = link
+            if existing.get("stock_status") in ["unknown", "", None]:
+                existing["stock_status"] = product.get("stock_status", "unknown")
+
+            if not existing.get("link") and product.get("link"):
+                existing["link"] = product.get("link")
 
             if not existing.get("price") and product.get("price"):
                 existing["price"] = product.get("price")
