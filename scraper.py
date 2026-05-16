@@ -23,47 +23,17 @@ def make_absolute_url(url):
     return url
 
 
-def extract_html_from_response(response):
-    html = response.text
+def build_page_url(page):
+    if page == 1:
+        return f"{BASE_URL}/cultured-corals?orderby=date"
 
-    try:
-        data = response.json()
-
-        print("JSON TYPE:", type(data))
-
-        if isinstance(data, dict):
-            print("JSON KEYS:", data.keys())
-
-            preview = json.dumps(data, ensure_ascii=False)[:1500]
-            print("JSON SAMPLE:", preview)
-
-            possible_keys = [
-                "products",
-                "html",
-                "content",
-                "items",
-                "product_list",
-                "list",
-                "output",
-                "data"
-            ]
-
-            for key in possible_keys:
-                if key in data and data[key]:
-                    html = data[key]
-                    print(f"HTML gevonden in key: {key}")
-                    break
-
-            if isinstance(html, list):
-                html = "".join(str(item) for item in html)
-
-            if isinstance(html, dict):
-                html = json.dumps(html)
-
-    except Exception as e:
-        print("Geen JSON response:", e)
-
-    return html
+    return (
+        f"{BASE_URL}/wysiwyg"
+        f"?p={page}"
+        f"&product_list_dir=desc"
+        f"&product_list_order=created_at"
+        f"&xhr=1"
+    )
 
 
 def get_title(card, link_el):
@@ -137,7 +107,12 @@ def extract_html_from_response(response):
     try:
         data = response.json()
 
+        print("JSON TYPE:", type(data))
+
         if isinstance(data, dict):
+            print("JSON KEYS:", data.keys())
+            print("JSON SAMPLE:", json.dumps(data, ensure_ascii=False)[:1500])
+
             possible_keys = [
                 "products",
                 "html",
@@ -145,12 +120,14 @@ def extract_html_from_response(response):
                 "items",
                 "product_list",
                 "list",
-                "output"
+                "output",
+                "data"
             ]
 
             for key in possible_keys:
                 if key in data and data[key]:
                     html = data[key]
+                    print(f"HTML gevonden in key: {key}")
                     break
 
             if isinstance(html, list):
@@ -159,8 +136,8 @@ def extract_html_from_response(response):
             if isinstance(html, dict):
                 html = json.dumps(html)
 
-    except Exception:
-        pass
+    except Exception as e:
+        print("Geen JSON response:", e)
 
     return html
 
