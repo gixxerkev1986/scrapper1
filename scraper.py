@@ -5,7 +5,6 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 
 BASE_URL = "https://shop.dejongmarinelife.nl"
-START_URL = "https://shop.dejongmarinelife.nl/cultured-corals?orderby=date"
 
 DATA_DIR = "data"
 DATA_FILE = os.path.join(DATA_DIR, "dejong_corals.json")
@@ -25,14 +24,19 @@ def make_absolute_url(url):
 
 
 def build_page_url(page):
-    if page == 1:
-        return START_URL
-
-    return f"{BASE_URL}/cultured-corals/page/{page}/?orderby=date"
+    return (
+        f"{BASE_URL}/wysiwyg"
+        f"?p={page}"
+        f"&product_list_dir=desc"
+        f"&product_list_order=created_at"
+        f"&xhr=1"
+    )
 
 
 def get_title(card, link_el):
     selectors = [
+        ".product-item-name a",
+        ".product-item-link",
         ".woocommerce-loop-product__title",
         ".product-title",
         ".title",
@@ -94,6 +98,40 @@ def detect_category(title, link):
     return "Cultured Corals"
 
 
+def extract_html_from_response(response):
+    html = response.text
+
+    try:
+        data = response.json()
+
+        if isinstance(data, dict):
+            possible_keys = [
+                "products",
+                "html",
+                "content",
+                "items",
+                "product_list",
+                "list",
+                "output"
+            ]
+
+            for key in possible_keys:
+                if key in data and data[key]:
+                    html = data[key]
+                    break
+
+            if isinstance(html, list):
+                html = "".join(str(item) for item in html)
+
+            if isinstance(html, dict):
+                html = json.dumps(html)
+
+    except Exception:
+        pass
+
+    return html
+
+
 def scrape_page(page):
     url = build_page_url(page)
 
@@ -102,7 +140,10 @@ def scrape_page(page):
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/120.0 Safari/537.36"
-        )
+        ),
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": f"{BASE_URL}/wysiwyg",
     }
 
     print(f"Scrapen pagina {page}: {url}")
@@ -115,17 +156,35 @@ def scrape_page(page):
 
     response.raise_for_status()
 
-    soup = BeautifulSoup(response.text, "lxml")
-    product_cards = soup.select("li.product")
+    html = extract_html_from_response(response)
+    soup = BeautifulSoup(html, "lxml")
+
+    product_cards = soup.select(
+        "li.product, "
+        ".product-item, "
+        ".item.product, "
+        ".products-grid .item, "
+        ".product"
+    )
 
     print(f"Productkaarten op pagina {page}: {len(product_cards)}")
 
     products = []
 
     for card in product_cards:
-        link_el = card.select_one("a.woocommerce-LoopProduct-link, a")
+        link_el = card.select_one(
+            "a.product-item-link, "
+            "a.woocommerce-LoopProduct-link, "
+            ".product-item-photo, "
+            "a"
+        )
+
         img_el = card.select_one("img")
-        price_el = card.select_one(".price, .woocommerce-Price-amount")
+        price_el = card.select_one(
+            ".price, "
+            ".woocommerce-Price-amount, "
+            ".price-box"
+        )
 
         title = get_title(card, link_el)
 
@@ -136,9 +195,14 @@ def scrape_page(page):
             image = (
                 img_el.get("data-src")
                 or img_el.get("data-lazy-src")
+                or img_el.get("data-original")
+                or img_el.get("data-srcset")
                 or img_el.get("src")
                 or ""
             )
+
+            if "," in image:
+                image = image.split(",")[0].strip().split(" ")[0]
 
         price = price_el.get_text(" ", strip=True) if price_el else ""
 
@@ -163,9 +227,12 @@ def scrape_page(page):
 
 def remove_duplicates(products):
     unique = {}
+
     for product in products:
         key = product.get("link") or product.get("title")
-        unique[key] = product
+
+        if key:
+            unique[key] = product
 
     return list(unique.values())
 
@@ -177,6 +244,7 @@ def scrape_dejong_corals(max_pages=20):
         page_products = scrape_page(page)
 
         if not page_products:
+            print(f"Geen producten meer gevonden op pagina {page}. Stoppen.")
             break
 
         all_products.extend(page_products)
