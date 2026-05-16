@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 
 BASE_URL = "https://shop.dejongmarinelife.nl"
-SCRAPE_URL = "https://shop.dejongmarinelife.nl/cultured-corals?orderby=date"
+START_URL = "https://shop.dejongmarinelife.nl/cultured-corals?orderby=date"
 
 DATA_DIR = "data"
 DATA_FILE = os.path.join(DATA_DIR, "dejong_corals.json")
@@ -22,6 +22,13 @@ def make_absolute_url(url):
         return BASE_URL + url
 
     return url
+
+
+def build_page_url(page):
+    if page == 1:
+        return START_URL
+
+    return f"{BASE_URL}/cultured-corals/page/{page}/?orderby=date"
 
 
 def get_title(card, link_el):
@@ -63,19 +70,33 @@ def get_title(card, link_el):
 def detect_category(title, link):
     text = f"{title} {link}".lower()
 
-    if any(word in text for word in ["acropora", "montipora", "stylophora", "pocillopora", "seriatopora"]):
+    if any(word in text for word in [
+        "acropora", "montipora", "stylophora", "pocillopora",
+        "seriatopora", "hydnophora", "birdsnest"
+    ]):
         return "SPS"
 
-    if any(word in text for word in ["euphyllia", "hammer", "torch", "frogspawn", "goniopora", "alveopora", "acan", "favites", "lobophyllia", "trachyphyllia", "chalice"]):
+    if any(word in text for word in [
+        "euphyllia", "hammer", "torch", "frogspawn", "goniopora",
+        "alveopora", "acan", "acanthastrea", "favites", "favia",
+        "lobophyllia", "trachyphyllia", "chalice", "caulastrea",
+        "duncan", "blastomussa", "micromussa", "cynarina", "scolymia"
+    ]):
         return "LPS"
 
-    if any(word in text for word in ["zoanthus", "zoa", "mushroom", "ricordea", "discosoma", "rhodactis", "sinularia", "sarcophyton"]):
+    if any(word in text for word in [
+        "zoanthus", "zoa", "mushroom", "ricordea", "discosoma",
+        "rhodactis", "sinularia", "sarcophyton", "clavularia",
+        "xenia", "briareum", "pachyclavularia"
+    ]):
         return "Soft"
 
     return "Cultured Corals"
 
 
-def scrape_dejong_corals():
+def scrape_page(page):
+    url = build_page_url(page)
+
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -84,17 +105,24 @@ def scrape_dejong_corals():
         )
     }
 
-    response = requests.get(SCRAPE_URL, headers=headers, timeout=20)
+    print(f"Scrapen pagina {page}: {url}")
+
+    response = requests.get(url, headers=headers, timeout=20)
+
+    if response.status_code == 404:
+        print(f"Pagina {page} bestaat niet.")
+        return []
+
     response.raise_for_status()
 
     soup = BeautifulSoup(response.text, "lxml")
-    products = []
-
     product_cards = soup.select("li.product")
 
-    print(f"Productkaarten gevonden: {len(product_cards)}")
+    print(f"Productkaarten op pagina {page}: {len(product_cards)}")
 
-    for index, card in enumerate(product_cards, start=1):
+    products = []
+
+    for card in product_cards:
         link_el = card.select_one("a.woocommerce-LoopProduct-link, a")
         img_el = card.select_one("img")
         price_el = card.select_one(".price, .woocommerce-Price-amount")
@@ -119,8 +147,6 @@ def scrape_dejong_corals():
 
         category = detect_category(title, link)
 
-        print(f"{index}. {title}")
-
         products.append({
             "title": title,
             "link": link,
@@ -128,15 +154,43 @@ def scrape_dejong_corals():
             "price": price,
             "category": category,
             "source": "DeJong Marine Life",
+            "page": page,
             "scraped_at": datetime.now().isoformat(timespec="seconds")
         })
+
+    return products
+
+
+def remove_duplicates(products):
+    unique = {}
+    for product in products:
+        key = product.get("link") or product.get("title")
+        unique[key] = product
+
+    return list(unique.values())
+
+
+def scrape_dejong_corals(max_pages=20):
+    all_products = []
+
+    for page in range(1, max_pages + 1):
+        page_products = scrape_page(page)
+
+        if not page_products:
+            break
+
+        all_products.extend(page_products)
+
+    all_products = remove_duplicates(all_products)
 
     os.makedirs(DATA_DIR, exist_ok=True)
 
     with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(products, f, ensure_ascii=False, indent=2)
+        json.dump(all_products, f, ensure_ascii=False, indent=2)
 
-    return products
+    print(f"Totaal unieke koralen gevonden: {len(all_products)}")
+
+    return all_products
 
 
 def load_saved_corals():
