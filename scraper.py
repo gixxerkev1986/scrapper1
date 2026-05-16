@@ -59,10 +59,8 @@ def get_title(card, link_el):
 
         if selector == "a[title]":
             title = el.get("title", "").strip()
-
         elif selector == "img[alt]":
             title = el.get("alt", "").strip()
-
         else:
             title = el.get_text(" ", strip=True)
 
@@ -75,7 +73,6 @@ def get_title(card, link_el):
 
     if link_el:
         title = link_el.get("title", "").strip()
-
         if title:
             return title
 
@@ -86,52 +83,23 @@ def detect_category(title, link):
     text = f"{title} {link}".lower()
 
     if any(word in text for word in [
-        "acropora",
-        "montipora",
-        "stylophora",
-        "pocillopora",
-        "seriatopora",
-        "hydnophora",
-        "birdsnest"
+        "acropora", "montipora", "stylophora", "pocillopora",
+        "seriatopora", "hydnophora", "birdsnest"
     ]):
         return "SPS"
 
     if any(word in text for word in [
-        "euphyllia",
-        "hammer",
-        "torch",
-        "frogspawn",
-        "goniopora",
-        "alveopora",
-        "acan",
-        "acanthastrea",
-        "favites",
-        "favia",
-        "lobophyllia",
-        "trachyphyllia",
-        "chalice",
-        "caulastrea",
-        "duncan",
-        "blastomussa",
-        "micromussa",
-        "cynarina",
-        "scolymia"
+        "euphyllia", "hammer", "torch", "frogspawn", "goniopora",
+        "alveopora", "acan", "acanthastrea", "favites", "favia",
+        "lobophyllia", "trachyphyllia", "chalice", "caulastrea",
+        "duncan", "blastomussa", "micromussa", "cynarina", "scolymia"
     ]):
         return "LPS"
 
     if any(word in text for word in [
-        "zoanthus",
-        "zoa",
-        "mushroom",
-        "ricordea",
-        "discosoma",
-        "rhodactis",
-        "sinularia",
-        "sarcophyton",
-        "clavularia",
-        "xenia",
-        "briareum",
-        "pachyclavularia"
+        "zoanthus", "zoa", "mushroom", "ricordea", "discosoma",
+        "rhodactis", "sinularia", "sarcophyton", "clavularia",
+        "xenia", "briareum", "pachyclavularia"
     ]):
         return "Soft"
 
@@ -139,25 +107,48 @@ def detect_category(title, link):
 
 
 def detect_stock_status(card):
-    stock_el = card.select_one(".stock")
+    check_blocks = [card]
 
-    if not stock_el:
-        return "unknown"
+    parent = card.parent
+    for _ in range(5):
+        if parent:
+            check_blocks.append(parent)
+            parent = parent.parent
 
-    stock_classes = stock_el.get("class", [])
-    stock_text = stock_el.get_text(" ", strip=True).lower()
+    for block in check_blocks:
+        stock_el = block.select_one(".stock")
+
+        if not stock_el:
+            continue
+
+        stock_classes = " ".join(stock_el.get("class", [])).lower()
+        stock_text = stock_el.get_text(" ", strip=True).lower()
+
+        if (
+            "unavailable" in stock_classes
+            or "out-of-stock" in stock_classes
+            or "out_of_stock" in stock_classes
+            or "out of stock" in stock_text
+            or "sold out" in stock_text
+            or "unavailable" in stock_text
+        ):
+            return "out_of_stock"
+
+        return "in_stock"
+
+    full_text = card.get_text(" ", strip=True).lower()
+    full_html = str(card).lower()
 
     if (
-        "unavailable" in stock_classes
-        or "out-of-stock" in stock_classes
-        or "out_of_stock" in stock_classes
-        or "out of stock" in stock_text
-        or "sold out" in stock_text
-        or "unavailable" in stock_text
+        "out of stock" in full_text
+        or "sold out" in full_text
+        or "stock unavailable" in full_html
+        or 'class="stock unavailable"' in full_html
+        or "class='stock unavailable'" in full_html
     ):
         return "out_of_stock"
 
-    return "in_stock"
+    return "unknown"
 
 
 def extract_html_from_response(response):
@@ -281,7 +272,7 @@ def scrape_page(page):
         if (
             title != "Onbekend"
             and image
-            and stock_status != "out_of_stock"
+            and stock_status == "in_stock"
         ):
             products.append({
                 "title": title,
@@ -334,7 +325,7 @@ def scrape_dejong_corals(max_pages=20):
         page_products = scrape_page(page)
 
         if not page_products:
-            print(f"Geen producten meer gevonden op pagina {page}. Stoppen.")
+            print(f"Geen beschikbare producten meer gevonden op pagina {page}. Stoppen.")
             break
 
         all_products.extend(page_products)
@@ -346,7 +337,7 @@ def scrape_dejong_corals(max_pages=20):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(all_products, f, ensure_ascii=False, indent=2)
 
-    print(f"Totaal unieke koralen gevonden: {len(all_products)}")
+    print(f"Totaal unieke beschikbare koralen gevonden: {len(all_products)}")
 
     return all_products
 
@@ -370,4 +361,4 @@ def load_saved_corals():
 
 if __name__ == "__main__":
     corals = scrape_dejong_corals()
-    print(f"{len(corals)} koralen gevonden.")
+    print(f"{len(corals)} beschikbare koralen gevonden.")
