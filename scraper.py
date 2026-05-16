@@ -3,11 +3,30 @@ import os
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 BASE_URL = "https://shop.dejongmarinelife.nl"
 
 DATA_DIR = "data"
 DATA_FILE = os.path.join(DATA_DIR, "dejong_corals.json")
+
+SCRAPE_SOURCES = {
+    "wysiwyg": {
+        "name": "WYSIWYG",
+        "url": "https://shop.dejongmarinelife.nl/wysiwyg",
+        "mode": "xhr"
+    },
+    "cultured": {
+        "name": "Cultured Corals",
+        "url": "https://shop.dejongmarinelife.nl/cultured-corals",
+        "mode": "hybrid"
+    },
+    "custom": {
+        "name": "Custom URL",
+        "url": "",
+        "mode": "auto"
+    }
+}
 
 
 def make_absolute_url(url):
@@ -23,17 +42,73 @@ def make_absolute_url(url):
     return url
 
 
-def build_page_url(page):
-    if page == 1:
-        return f"{BASE_URL}/cultured-corals?orderby=date"
+def clean_source_url(url):
+    if not url:
+        return ""
 
-    return (
-        f"{BASE_URL}/wysiwyg"
-        f"?p={page}"
-        f"&product_list_dir=desc"
-        f"&product_list_order=created_at"
-        f"&xhr=1"
-    )
+    url = url.strip()
+
+    if url.startswith("/"):
+        url = BASE_URL + url
+
+    return url
+
+
+def build_page_url(source_url, page, mode="auto"):
+    source_url = clean_source_url(source_url)
+
+    parsed = urlparse(source_url)
+    query = parse_qs(parsed.query)
+
+    if mode in ["xhr", "auto"]:
+        query["p"] = [str(page)]
+        query["product_list_dir"] = ["desc"]
+        query["product_list_order"] = ["created_at"]
+        query["xhr"] = ["1"]
+
+        new_query = urlencode(query, doseq=True)
+
+        return urlunparse((
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            new_query,
+            parsed.fragment
+        ))
+
+    if mode == "normal":
+        if page == 1:
+            return source_url
+
+        path = parsed.path.rstrip("/") + f"/page/{page}/"
+        return urlunparse((
+            parsed.scheme,
+            parsed.netloc,
+            path,
+            parsed.params,
+            parsed.query,
+            parsed.fragment
+        ))
+
+    if mode == "hybrid":
+        if page == 1:
+            query["orderby"] = ["date"]
+            new_query = urlencode(query, doseq=True)
+
+            return urlunparse((
+                parsed.scheme,
+                parsed.netloc,
+                parsed.path,
+                parsed.params,
+                new_query,
+                parsed.fragment
+            ))
+
+        xhr_url = f"{BASE_URL}/wysiwyg"
+        return build_page_url(xhr_url, page, mode="xhr")
+
+    return source_url
 
 
 def get_title(card, link_el):
@@ -187,8 +262,8 @@ def extract_html_from_response(response):
     return html
 
 
-def scrape_page(page):
-    url = build_page_url(page)
+def scrape_page(source_url, page, mode="auto", source_name="DeJong"):
+    url = build_page_url(source_url, page, mode)
 
     headers = {
         "User-Agent": (
@@ -198,7 +273,7 @@ def scrape_page(page):
         ),
         "Accept": "application/json, text/javascript, */*; q=0.01",
         "X-Requested-With": "XMLHttpRequest",
-        "Referer": f"{BASE_URL}/wysiwyg",
+        "Referer": source_url,
     }
 
     print(f"Scrapen pagina {page}: {url}")
@@ -281,7 +356,8 @@ def scrape_page(page):
                 "price": price,
                 "category": category,
                 "stock_status": stock_status,
-                "source": "DeJong Marine Life",
+                "source": source_name,
+                "source_url": source_url,
                 "page": page,
                 "scraped_at": datetime.now().isoformat(timespec="seconds")
             })
@@ -306,9 +382,6 @@ def remove_duplicates(products):
         else:
             existing = unique[key]
 
-            if existing.get("stock_status") in ["unknown", "", None]:
-                existing["stock_status"] = product.get("stock_status", "unknown")
-
             if not existing.get("link") and product.get("link"):
                 existing["link"] = product.get("link")
 
@@ -318,11 +391,40 @@ def remove_duplicates(products):
     return list(unique.values())
 
 
-def scrape_dejong_corals(max_pages=20):
+def get_source_config(source_key="wysiwyg", custom_url=None):
+    source = SCRAPE_SOURCES.get(source_key, SCRAPE_SOURCES["wysiwyg"]).copy()
+
+    if source_key == "custom" and custom_url:
+        source["url"] = clean_source_url(custom_url)
+        source["mode"] = "auto"
+        source["name"] = "Custom URL"
+
+    return source
+
+
+def scrape_dejong_corals(source_key="wysiwyg", custom_url=None, max_pages=20):
+    source = get_source_config(source_key, custom_url)
+
+    source_url = source["url"]
+    mode = source["mode"]
+    source_name = source["name"]
+
+    if not source_url:
+        raise ValueError("Geen geldige URL opgegeven.")
+
     all_products = []
 
+    print(f"Bron: {source_name}")
+    print(f"URL: {source_url}")
+    print(f"Mode: {mode}")
+
     for page in range(1, max_pages + 1):
-        page_products = scrape_page(page)
+        page_products = scrape_page(
+            source_url=source_url,
+            page=page,
+            mode=mode,
+            source_name=source_name
+        )
 
         if not page_products:
             print(f"Geen beschikbare producten meer gevonden op pagina {page}. Stoppen.")
@@ -360,5 +462,5 @@ def load_saved_corals():
 
 
 if __name__ == "__main__":
-    corals = scrape_dejong_corals()
+    corals = scrape_dejong_corals(source_key="wysiwyg")
     print(f"{len(corals)} beschikbare koralen gevonden.")
