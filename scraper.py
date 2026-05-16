@@ -11,45 +11,122 @@ DATA_DIR = "data"
 DATA_FILE = os.path.join(DATA_DIR, "dejong_corals.json")
 
 
+def make_absolute_url(url):
+    if not url:
+        return ""
+
+    if url.startswith("//"):
+        return "https:" + url
+
+    if url.startswith("/"):
+        return BASE_URL + url
+
+    return url
+
+
+def get_title(card, link_el):
+    selectors = [
+        ".woocommerce-loop-product__title",
+        ".product-title",
+        ".title",
+        "h2",
+        "h3",
+        "h4",
+        "a[title]",
+        "img[alt]",
+    ]
+
+    for selector in selectors:
+        el = card.select_one(selector)
+
+        if not el:
+            continue
+
+        if selector == "a[title]":
+            title = el.get("title", "").strip()
+        elif selector == "img[alt]":
+            title = el.get("alt", "").strip()
+        else:
+            title = el.get_text(" ", strip=True)
+
+        if title and title.lower() not in ["add to cart", "read more", "select options"]:
+            return title
+
+    if link_el:
+        title = link_el.get("title", "").strip()
+        if title:
+            return title
+
+    return "Onbekend"
+
+
+def detect_category(title, link):
+    text = f"{title} {link}".lower()
+
+    if any(word in text for word in ["acropora", "montipora", "stylophora", "pocillopora", "seriatopora"]):
+        return "SPS"
+
+    if any(word in text for word in ["euphyllia", "hammer", "torch", "frogspawn", "goniopora", "alveopora", "acan", "favites", "lobophyllia", "trachyphyllia", "chalice"]):
+        return "LPS"
+
+    if any(word in text for word in ["zoanthus", "zoa", "mushroom", "ricordea", "discosoma", "rhodactis", "sinularia", "sarcophyton"]):
+        return "Soft"
+
+    return "Cultured Corals"
+
+
 def scrape_dejong_corals():
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                      "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0 Safari/537.36"
+        )
     }
 
     response = requests.get(SCRAPE_URL, headers=headers, timeout=20)
     response.raise_for_status()
 
     soup = BeautifulSoup(response.text, "lxml")
-
     products = []
 
-    # WooCommerce product cards
     product_cards = soup.select("li.product")
 
-    for card in product_cards:
-        print(card.prettify())
+    print(f"Productkaarten gevonden: {len(product_cards)}")
+
+    for index, card in enumerate(product_cards, start=1):
         link_el = card.select_one("a.woocommerce-LoopProduct-link, a")
         img_el = card.select_one("img")
-        price_el = card.select_one(".price")
+        price_el = card.select_one(".price, .woocommerce-Price-amount")
 
-        title = title_el.get_text(strip=True) if title_el else "Onbekend"
+        title = get_title(card, link_el)
+
         link = link_el.get("href") if link_el else ""
-        image = img_el.get("data-src") or img_el.get("src") if img_el else ""
+        image = ""
+
+        if img_el:
+            image = (
+                img_el.get("data-src")
+                or img_el.get("data-lazy-src")
+                or img_el.get("src")
+                or ""
+            )
+
         price = price_el.get_text(" ", strip=True) if price_el else ""
 
-        if link and link.startswith("/"):
-            link = BASE_URL + link
+        link = make_absolute_url(link)
+        image = make_absolute_url(image)
 
-        if image and image.startswith("/"):
-            image = BASE_URL + image
+        category = detect_category(title, link)
+
+        print(f"{index}. {title}")
 
         products.append({
             "title": title,
             "link": link,
             "image": image,
             "price": price,
-            "category": "Cultured Corals",
+            "category": category,
             "source": "DeJong Marine Life",
             "scraped_at": datetime.now().isoformat(timespec="seconds")
         })
