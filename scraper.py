@@ -269,10 +269,25 @@ def remove_duplicates(products):
     unique = {}
 
     for product in products:
-        key = product.get("link") or product.get("title")
+        title = product.get("title", "").strip().lower()
+        image = product.get("image", "").strip()
+        link = product.get("link", "").strip()
 
-        if key:
+        key = f"{title}|{image}"
+
+        if not title or not image:
+            continue
+
+        if key not in unique:
             unique[key] = product
+        else:
+            existing = unique[key]
+
+            if not existing.get("link") and link:
+                existing["link"] = link
+
+            if not existing.get("price") and product.get("price"):
+                existing["price"] = product.get("price")
 
     return list(unique.values())
 
