@@ -1,1 +1,149 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>DeJong Coral Scraper</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #071b20;
+            color: #ffffff;
+        }
 
+        .header {
+            padding: 28px;
+            background: linear-gradient(135deg, #07343b, #0f5b63);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+
+        .header p {
+            color: #d8f7f4;
+        }
+
+        .btn {
+            display: inline-block;
+            background: #20d6c7;
+            color: #052025;
+            padding: 12px 18px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .container {
+            padding: 24px;
+        }
+
+        .flash {
+            padding: 14px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .success {
+            background: #104d3a;
+        }
+
+        .error {
+            background: #5a1d1d;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+            gap: 18px;
+        }
+
+        .card {
+            background: #0d2c34;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .card img {
+            width: 100%;
+            height: 190px;
+            object-fit: cover;
+            background: #102d34;
+        }
+
+        .card-content {
+            padding: 14px;
+        }
+
+        .card h3 {
+            margin: 0 0 8px;
+            font-size: 16px;
+        }
+
+        .price {
+            color: #9df5ec;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .source {
+            font-size: 12px;
+            color: #a7c8c9;
+            margin-bottom: 10px;
+        }
+
+        .card a {
+            color: #20d6c7;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>DeJong Coral Scraper</h1>
+    <p>Testmodule voor het ophalen van cultured corals.</p>
+    <a class="btn" href="/scrape">Nu scrapen</a>
+</div>
+
+<div class="container">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <p>Aantal opgeslagen koralen: <strong>{{ corals|length }}</strong></p>
+
+    <div class="grid">
+        {% for coral in corals %}
+            <div class="card">
+                {% if coral.image %}
+                    <img src="{{ coral.image }}" alt="{{ coral.title }}">
+                {% endif %}
+
+                <div class="card-content">
+                    <h3>{{ coral.title }}</h3>
+
+                    {% if coral.price %}
+                        <div class="price">{{ coral.price }}</div>
+                    {% endif %}
+
+                    <div class="source">
+                        {{ coral.source }} · {{ coral.category }}
+                    </div>
+
+                    <a href="{{ coral.link }}" target="_blank">Bekijk origineel</a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+</body>
+</html>
