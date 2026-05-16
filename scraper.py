@@ -66,8 +66,17 @@ def load_saved_corals():
     if not os.path.exists(DATA_FILE):
         return []
 
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+
+            if not content:
+                return []
+
+            return json.loads(content)
+
+    except json.JSONDecodeError:
+        return []
 
 
 if __name__ == "__main__":
