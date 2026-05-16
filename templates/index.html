@@ -25,6 +25,26 @@
             color: #d8f7f4;
         }
 
+        .container {
+            padding: 24px;
+        }
+
+        .scrape-form {
+            margin-top: 22px;
+            display: grid;
+            grid-template-columns: 220px 1fr 160px;
+            gap: 12px;
+            max-width: 900px;
+        }
+
+        select,
+        input {
+            padding: 12px;
+            border-radius: 10px;
+            border: none;
+            font-size: 15px;
+        }
+
         .btn {
             display: inline-block;
             background: #20d6c7;
@@ -33,10 +53,8 @@
             border-radius: 10px;
             text-decoration: none;
             font-weight: bold;
-        }
-
-        .container {
-            padding: 24px;
+            border: none;
+            cursor: pointer;
         }
 
         .flash {
@@ -53,6 +71,11 @@
             background: #5a1d1d;
         }
 
+        .stats {
+            margin-bottom: 20px;
+            color: #d8f7f4;
+        }
+
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
@@ -64,6 +87,19 @@
             border: 1px solid rgba(255,255,255,0.08);
             border-radius: 16px;
             overflow: hidden;
+            position: relative;
+        }
+
+        .badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: #20d6c7;
+            color: #052025;
+            font-size: 12px;
+            font-weight: bold;
+            padding: 6px 9px;
+            border-radius: 999px;
         }
 
         .card img {
@@ -97,14 +133,38 @@
         .card a {
             color: #20d6c7;
         }
+
+        @media (max-width: 800px) {
+            .scrape-form {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
 
 <div class="header">
     <h1>DeJong Coral Scraper</h1>
-    <p>Testmodule voor het ophalen van cultured corals.</p>
-    <a class="btn" href="/scrape">Nu scrapen</a>
+    <p>Kies welke DeJong-pagina je wilt scrapen.</p>
+
+    <form class="scrape-form" action="/scrape" method="get">
+        <select name="source">
+            {% for key, source in sources.items() %}
+                <option value="{{ key }}" {% if selected_source == key %}selected{% endif %}>
+                    {{ source.name }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <input
+            type="text"
+            name="url"
+            value="{{ custom_url }}"
+            placeholder="Alleen nodig bij Custom URL"
+        >
+
+        <button class="btn" type="submit">Nu scrapen</button>
+    </form>
 </div>
 
 <div class="container">
@@ -117,11 +177,16 @@
         {% endif %}
     {% endwith %}
 
-    <p>Aantal opgeslagen koralen: <strong>{{ corals|length }}</strong></p>
+    <div class="stats">
+        Aantal beschikbare opgeslagen koralen:
+        <strong>{{ corals|length }}</strong>
+    </div>
 
     <div class="grid">
         {% for coral in corals %}
             <div class="card">
+                <div class="badge">{{ coral.category }}</div>
+
                 {% if coral.image %}
                     <img src="{{ coral.image }}" alt="{{ coral.title }}">
                 {% endif %}
@@ -134,7 +199,7 @@
                     {% endif %}
 
                     <div class="source">
-                        {{ coral.source }} · {{ coral.category }}
+                        {{ coral.source }} · pagina {{ coral.page }} · {{ coral.stock_status }}
                     </div>
 
                     <a href="{{ coral.link }}" target="_blank">Bekijk origineel</a>
