@@ -28,7 +28,7 @@ def scrape_dejong_corals():
     product_cards = soup.select("li.product")
 
     for card in product_cards:
-        title_el = card.select_one(".woocommerce-loop-product__title")
+        print(card.prettify())
         link_el = card.select_one("a.woocommerce-LoopProduct-link, a")
         img_el = card.select_one("img")
         price_el = card.select_one(".price")
