@@ -58,16 +58,23 @@ def get_title(card, link_el):
 
         if selector == "a[title]":
             title = el.get("title", "").strip()
+
         elif selector == "img[alt]":
             title = el.get("alt", "").strip()
+
         else:
             title = el.get_text(" ", strip=True)
 
-        if title and title.lower() not in ["add to cart", "read more", "select options"]:
+        if title and title.lower() not in [
+            "add to cart",
+            "read more",
+            "select options"
+        ]:
             return title
 
     if link_el:
         title = link_el.get("title", "").strip()
+
         if title:
             return title
 
@@ -78,23 +85,52 @@ def detect_category(title, link):
     text = f"{title} {link}".lower()
 
     if any(word in text for word in [
-        "acropora", "montipora", "stylophora", "pocillopora",
-        "seriatopora", "hydnophora", "birdsnest"
+        "acropora",
+        "montipora",
+        "stylophora",
+        "pocillopora",
+        "seriatopora",
+        "hydnophora",
+        "birdsnest"
     ]):
         return "SPS"
 
     if any(word in text for word in [
-        "euphyllia", "hammer", "torch", "frogspawn", "goniopora",
-        "alveopora", "acan", "acanthastrea", "favites", "favia",
-        "lobophyllia", "trachyphyllia", "chalice", "caulastrea",
-        "duncan", "blastomussa", "micromussa", "cynarina", "scolymia"
+        "euphyllia",
+        "hammer",
+        "torch",
+        "frogspawn",
+        "goniopora",
+        "alveopora",
+        "acan",
+        "acanthastrea",
+        "favites",
+        "favia",
+        "lobophyllia",
+        "trachyphyllia",
+        "chalice",
+        "caulastrea",
+        "duncan",
+        "blastomussa",
+        "micromussa",
+        "cynarina",
+        "scolymia"
     ]):
         return "LPS"
 
     if any(word in text for word in [
-        "zoanthus", "zoa", "mushroom", "ricordea", "discosoma",
-        "rhodactis", "sinularia", "sarcophyton", "clavularia",
-        "xenia", "briareum", "pachyclavularia"
+        "zoanthus",
+        "zoa",
+        "mushroom",
+        "ricordea",
+        "discosoma",
+        "rhodactis",
+        "sinularia",
+        "sarcophyton",
+        "clavularia",
+        "xenia",
+        "briareum",
+        "pachyclavularia"
     ]):
         return "Soft"
 
@@ -111,9 +147,9 @@ def extract_html_from_response(response):
 
         if isinstance(data, dict):
             print("JSON KEYS:", data.keys())
-            print("JSON SAMPLE:", json.dumps(data, ensure_ascii=False)[:1500])
 
             possible_keys = [
+                "product_list_html",
                 "products",
                 "html",
                 "content",
@@ -167,10 +203,11 @@ def scrape_page(page):
     response.raise_for_status()
 
     html = extract_html_from_response(response)
+
     soup = BeautifulSoup(html, "lxml")
 
     product_cards = soup.select(
-        "li.product, "
+        "li.product-item, "
         ".product-item, "
         ".item.product, "
         ".products-grid .item, "
@@ -190,6 +227,7 @@ def scrape_page(page):
         )
 
         img_el = card.select_one("img")
+
         price_el = card.select_one(
             ".price, "
             ".woocommerce-Price-amount, "
@@ -199,6 +237,7 @@ def scrape_page(page):
         title = get_title(card, link_el)
 
         link = link_el.get("href") if link_el else ""
+
         image = ""
 
         if img_el:
