@@ -21,6 +21,14 @@
             font-size: 28px;
         }
 
+        .admin-info {
+    margin-top: 12px;
+    padding: 10px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 10px;
+    font-size: 12px;
+    color: #a7c8c9;
+}
         .header p {
             color: #d8f7f4;
         }
@@ -185,7 +193,7 @@
     <div class="grid">
         {% for coral in corals %}
             <div class="card">
-                <div class="badge">{{ coral.category }}</div>
+                <!-- Admin badge verwijderd uit publieke foto -->
 
                 {% if coral.image %}
                     <img src="{{ coral.image }}" alt="{{ coral.title }}">
@@ -198,9 +206,14 @@
                         <div class="price">{{ coral.price }}</div>
                     {% endif %}
 
-                    <div class="source">
-                        {{ coral.source }} · pagina {{ coral.page }} · {{ coral.stock_status }}
-                    </div>
+                    <div class="admin-info">
+    <strong>Admin info</strong><br>
+    Bron: {{ coral.source }}<br>
+    Categorie: {{ coral.category }}<br>
+    Pagina: {{ coral.page }}<br>
+    Status: {{ coral.stock_status }}<br>
+    <a href="{{ coral.link }}" target="_blank">Bekijk bij leverancier</a>
+ </div>
 
                     <a href="{{ coral.link }}" target="_blank">Bekijk origineel</a>
                 </div>
